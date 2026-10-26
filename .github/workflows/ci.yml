@@ -50,3 +50,36 @@ jobs:
 
       - name: Execute PHP tests
         run: composer test
+
+  laravel-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+        illuminate: ['10', '11']
+    name: Illuminate ${{ matrix.illuminate }} / PHP ${{ matrix.php }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, mbstring, dom, xml, xmlwriter
+          coverage: none
+          tools: composer:2.10.3
+      - name: Resolve tested framework and SDK versions
+        run: >-
+          composer update
+          --with illuminate/support:^${{ matrix.illuminate }}.0
+          --with illuminate/container:^${{ matrix.illuminate }}.0
+          --with illuminate/config:^${{ matrix.illuminate }}.0
+          --with irazasyed/telegram-bot-sdk:3.16.0
+          --prefer-dist --no-interaction --no-progress
+      - name: Check platform requirements
+        run: composer check-platform-reqs
+      - name: Audit dependencies
+        run: composer audit
+      - name: Execute PHP tests
+        run: composer test

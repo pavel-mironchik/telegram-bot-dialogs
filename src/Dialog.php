@@ -29,7 +29,7 @@ abstract class Dialog
     /** @var int|null Index of the next step that set manually using jump() method. */
     private ?int $afterProceedJumpToIndex = null;
 
-    public function __construct(int $chatId, Api $bot = null)
+    public function __construct(int $chatId, ?Api $bot = null)
     {
         $this->chat_id = $chatId;
         if ($bot) {

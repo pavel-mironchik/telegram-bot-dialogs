@@ -1,5 +1,5 @@
-[![CI](https://github.com/koot-labs/telegram-bot-dialogs/actions/workflows/ci.yml/badge.svg)](https://github.com/koot-labs/telegram-bot-dialogs/actions/workflows/ci.yml)
-[![Backward compatibility check](https://github.com/koot-labs/telegram-bot-dialogs/actions/workflows/backward-compatibility-check.yml/badge.svg)](https://github.com/koot-labs/telegram-bot-dialogs/actions/workflows/backward-compatibility-check.yml)
+[![CI](https://github.com/pavel-mironchik/telegram-bot-dialogs/actions/workflows/ci.yml/badge.svg)](https://github.com/pavel-mironchik/telegram-bot-dialogs/actions/workflows/ci.yml)
+[![Backward compatibility check](https://github.com/pavel-mironchik/telegram-bot-dialogs/actions/workflows/backward-compatibility-check.yml/badge.svg)](https://github.com/pavel-mironchik/telegram-bot-dialogs/actions/workflows/backward-compatibility-check.yml)
 
 <p align="center"><img src="https://user-images.githubusercontent.com/5278175/176997422-79e5c4c1-ff43-438e-b30e-651bb8e17bcf.png" alt="Dialogs" width="400"></p>
 
@@ -10,19 +10,46 @@ The extension for [Telegram Bot API PHP SDK](https://github.com/irazasyed/telegr
 
 ## About this fork
 
-Original package is not maintained anymore and does not support Telegram Bot API PHP SDK v3.
-The goal of the fork is to maintain the package compatible with the latest [Telegram Bot API PHP SDK](https://github.com/irazasyed/telegram-bot-sdk),
-PHP 8+ and Laravel features, focus on stability, better DX and readability.
+This is the FlashAsia maintenance fork of `koot-labs/telegram-bot-dialogs`, based on
+upstream 0.5.2 and the Laravel 10 maintenance branch. It preserves the legacy
+`DialogManager::proceed()`, `Dialog::end()`, `jump()` and `remember()` APIs and
+serialized Redis state used by FlashAsia.
 
+**v0.6.0 is a release of this fork**, not the upstream release with the same number.
+The upstream 1.x API is a separate line and is not a drop-in replacement for this
+legacy API. The Composer package name and PHP namespace remain unchanged so
+existing consumers can select this fork through a VCS repository.
+
+This release adds Illuminate 11 support and an explicitly nullable constructor
+argument for PHP 8.4. CI exercises Illuminate 10/11 on PHP 8.3/8.4 with provider,
+container, configuration and serialized state tests. These component tests do not
+replace application integration tests or test against live Telegram/Redis.
 
 ## Installation
 
-You can easily install the package using Composer:
+Add the fork repository to your application's root `composer.json`:
 
-```shell
-composer require koot-labs/telegram-bot-dialogs
+```json
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/pavel-mironchik/telegram-bot-dialogs"
+        }
+    ],
+    "require": {
+        "koot-labs/telegram-bot-dialogs": "0.6.0"
+    }
+}
 ```
-Package requires PHP >= 8.0
+
+Then run `composer update koot-labs/telegram-bot-dialogs`. Keep the resulting lock
+file and verify its source URL points to this fork. The explicit root VCS
+repository is required to select this release rather than the upstream package
+on Packagist. Composer infers the version from the real `v0.6.0` Git tag.
+
+Package requires PHP >= 8.0. The new compatibility matrix covers PHP 8.3/8.4;
+see CI for the inherited older-runtime checks.
 
 
 ## Usage
@@ -34,7 +61,7 @@ Package requires PHP >= 8.0
 
 ### 1. Create a Dialog class
 
-Each dialog should be implemented as class that extends basic `Dialog` as you can see in [HelloExampleDialog](https://github.com/koot-labs/telegram-bot-dialogs/blob/master/src/Dialogs/HelloExampleDialog.php) or the code bellow:
+Each dialog should be implemented as class that extends basic `Dialog` as you can see in [HelloExampleDialog](https://github.com/pavel-mironchik/telegram-bot-dialogs/blob/v0.6.0/src/Dialogs/HelloExampleDialog.php) or the code bellow:
 
 ```php
 use KootLabs\TelegramBotDialogs\Dialog;
@@ -76,7 +103,7 @@ final class HelloDialog extends Dialog
 ### 2. Create a Telegram command
 
 To initiate a dialog please use `DialogManager` (or, if you use Laravel, `Dialogs` Facade) — it will care about storing and recovering `Dialog` instance state between steps/requests.
-To execute the first and next steps please call `Dialogs::procceed()` method with update object as an argument.
+To execute the first and next steps please call `Dialogs::proceed()` method with update object as an argument.
 Also, it is possible to use dialogs with Telegram commands and DI through type hinting.
 
 ```php

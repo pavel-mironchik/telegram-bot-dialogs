@@ -1,15 +1,59 @@
-on: [push]
 name: Backward compatibility check
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
 
 jobs:
   bc_check:
     name: Backward compatibility check
     runs-on: ubuntu-latest
+    env:
+      # This fork has no release tags. Pushes compare with the original l10 API.
+      BC_FROM: ${{ github.event.pull_request.base.sha || '267ea16817c91fc142d7f47487a64b0afc8c005c' }}
+      BC_TO: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BC_TO }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: fetch tags
-        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, json, libxml, simplexml, mbstring, curl, intl
+          coverage: none
+          tools: composer:2.10.3
 
-      - name: Roave BC Check
-        uses: docker://nyholm/roave-bc-check-ga
+      - name: Verify both revisions on the actual PHP platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          php --version
+          composer --version
+          for revision in "$BC_FROM" "$BC_TO"; do
+            git rev-parse --verify "${revision}^{commit}"
+            target="$(mktemp -d "$RUNNER_TEMP/bc-platform.XXXXXX")"
+            git archive "$revision" | tar -x -C "$target"
+            composer --working-dir="$target" install --no-dev --no-scripts --no-plugins --no-interaction --no-progress
+            composer --working-dir="$target" check-platform-reqs --no-dev
+            composer --working-dir="$target" audit --no-dev
+          done
+
+      - name: Install isolated API comparison tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/roave-tool"
+          composer --working-dir="$RUNNER_TEMP/roave-tool" require roave/backward-compatibility-check:8.24.0 composer/composer:2.10.3 --no-scripts --no-plugins --no-interaction --no-progress
+          composer --working-dir="$RUNNER_TEMP/roave-tool" check-platform-reqs
+
+      # Roave's internal AST dependency resolver ignores platform requirements.
+      # It is API analysis, not a replacement for the strict revision gates above.
+      - name: Compare the actual base and head APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          php "$RUNNER_TEMP/roave-tool/vendor/bin/roave-backward-compatibility-check" --from="$BC_FROM" --to="$BC_TO" --format=github-actions --no-interaction
